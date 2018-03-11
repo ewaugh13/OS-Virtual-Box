@@ -106,7 +106,7 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
   printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up. \n", minor);
 
   flag = 1;
-  wake_up_interruptible_all(&dev->my_queue);
+  wake_up_interruptible(&sleepy_devices[minor].my_queue);
 
   /* END YOUR CODE */
   mutex_unlock(&dev->sleepy_mutex);
@@ -121,7 +121,7 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
   int minor;
-  size_t remaining_seconds;
+  size_t remaining_seconds = 0;
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
@@ -132,14 +132,13 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
     return -EINVAL;
   }
   minor = (int)iminor(filp->f_path.dentry->d_inode);
-  remaining_seconds = copy_from_user(&remaining_seconds, buf, count);
+  remaining_seconds = *((int*)buf);
 
   mutex_unlock(&dev->sleepy_mutex);
-  wait_event_interruptible(dev->my_queue, flag != 0);
+  retval = jiffies_to_msecs(wait_event_interruptible_timeout(sleepy_devices[minor].my_queue, flag != 0, msecs_to_jiffies(remaining_seconds * 1000))) / 1000;
   flag = 0;
   
-
-  printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, remaining_seconds);
+  printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, retval);
 
   /* END YOUR CODE */
   printk("end of write\n");
