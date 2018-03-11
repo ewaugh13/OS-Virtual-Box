@@ -29,6 +29,8 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/jiffies.h>
+#include <linux/wait.h>
+#include <linux/delay.h>
 
 #include <asm/uaccess.h>
 
@@ -93,30 +95,23 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
 {
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
+  int minor;
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
-  mutex_unlock(&dev->sleepy_mutex);
   /* YOUR CODE HERE */
   
-  int minor;
   minor = (int)iminor(filp->f_path.dentry->d_inode);
   printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up. \n", minor);
-
-  //maybe add this
-  //if(filp->f_flags & O_NONBLOCK)
-  //{
-    //return -EAGAIN;
-  //}
-
-  //TODO need to wake up all waiting processes in wait queue for this driver
 
   flag = 1;
   //TODO need to get real queue
   wake_up_interruptible(&dev->my_queue);
 
   /* END YOUR CODE */
+  printk("end of read\n");
+  mutex_unlock(&dev->sleepy_mutex);
 	
   return retval;
 }
@@ -127,28 +122,29 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
 {
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
+  int minor;
+  size_t remaining_seconds = 0;
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
-  mutex_unlock(&dev->sleepy_mutex);
 
-  int remaining_seconds = 0;
   /* YOUR CODE HERE */
   if(count != 4)
   {
     return -EINVAL;
   }
 
-  int minor;
   minor = (int)iminor(filp->f_path.dentry->d_inode);
   printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, remaining_seconds);
 
   //some copy_from_user (similiar to mem_copy)
-  wait_event_interruptible(&dev->my_queue, flag != 0);
+  wait_event_interruptible(dev->my_queue, flag != 0);
   flag = 0;
 
   /* END YOUR CODE */
+  printk("end of write\n");
+  mutex_unlock(&dev->sleepy_mutex);
 	
   return retval;
 }
