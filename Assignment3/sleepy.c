@@ -106,13 +106,11 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
   printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up. \n", minor);
 
   flag = 1;
-  //TODO need to get real queue
-  wake_up_interruptible(&dev->my_queue);
+  wake_up_interruptible_all(&dev->my_queue);
 
   /* END YOUR CODE */
-  printk("end of read\n");
   mutex_unlock(&dev->sleepy_mutex);
-	
+	printk("end of read\n");
   return retval;
 }
                 
@@ -123,29 +121,28 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
   int minor;
-  size_t remaining_seconds = 0;
+  size_t remaining_seconds;
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
-
   /* YOUR CODE HERE */
   if(count != 4)
   {
     return -EINVAL;
   }
-
   minor = (int)iminor(filp->f_path.dentry->d_inode);
-  printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, remaining_seconds);
+  remaining_seconds = copy_from_user(&remaining_seconds, buf, count);
 
-  //some copy_from_user (similiar to mem_copy)
+  mutex_unlock(&dev->sleepy_mutex);
   wait_event_interruptible(dev->my_queue, flag != 0);
   flag = 0;
+  
+
+  printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, remaining_seconds);
 
   /* END YOUR CODE */
   printk("end of write\n");
-  mutex_unlock(&dev->sleepy_mutex);
-	
   return retval;
 }
 
