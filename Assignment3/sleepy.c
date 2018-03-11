@@ -27,6 +27,8 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/jiffies.h>
 
 #include <asm/uaccess.h>
 
@@ -47,7 +49,6 @@ static unsigned int sleepy_major = 0;
 static struct sleepy_dev *sleepy_devices = NULL;
 static struct class *sleepy_class = NULL;
 
-static DECLARE_WAIT_QUEUE_HEAD(wq);
 static int flag = 0;
 /* ================================================================ */
 
@@ -96,7 +97,12 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
+  mutex_unlock(&dev->sleepy_mutex);
   /* YOUR CODE HERE */
+  
+  int minor;
+  minor = (int)iminor(filp->f_path.dentry->d_inode);
+  printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up. \n", minor);
 
   //maybe add this
   //if(filp->f_flags & O_NONBLOCK)
@@ -104,16 +110,14 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
     //return -EAGAIN;
   //}
 
-  //need to wake up all waiting processes in wait queue for this driver
+  //TODO need to wake up all waiting processes in wait queue for this driver
 
-  printk(KERN_DEBUG "process %i (%s) awakening the readers...\n",
-          current->pid, current->comm);//not sure about pid thing
   flag = 1;
-  wake_up_interruptible(&wq);
+  //TODO need to get real queue
+  wake_up_interruptible(&dev->my_queue);
 
   /* END YOUR CODE */
 	
-  mutex_unlock(&dev->sleepy_mutex);
   return retval;
 }
                 
@@ -127,23 +131,25 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
-  /* YOUR CODE HERE */
+  mutex_unlock(&dev->sleepy_mutex);
 
-  if count != 4
+  int remaining_seconds = 0;
+  /* YOUR CODE HERE */
+  if(count != 4)
   {
     return -EINVAL;
   }
 
-  printk(KERN_DEBUG "process %i (%s) going to sleep\n",
-          current->pid, current->comm);//not sure about the pid thing
-  wait_event_interruptible(wq, flag != 0);
+  int minor;
+  minor = (int)iminor(filp->f_path.dentry->d_inode);
+  printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, remaining_seconds);
+
+  //some copy_from_user (similiar to mem_copy)
+  wait_event_interruptible(&dev->my_queue, flag != 0);
   flag = 0;
-  printk(KERN_DEBUG "awoken %i (%s)\n",
-          currnet->pid, current->comm);
 
   /* END YOUR CODE */
 	
-  mutex_unlock(&dev->sleepy_mutex);
   return retval;
 }
 
@@ -180,6 +186,8 @@ sleepy_construct_device(struct sleepy_dev *dev, int minor,
   /* Memory is to be allocated when the device is opened the first time */
   dev->data = NULL;     
   mutex_init(&dev->sleepy_mutex);
+  //to initialize the wait queue for each device
+  init_waitqueue_head(&dev->my_queue);
     
   cdev_init(&dev->cdev, &sleepy_fops);
   dev->cdev.owner = THIS_MODULE;
