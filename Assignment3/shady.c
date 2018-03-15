@@ -71,7 +71,7 @@ asmlinkage int my_open (const char* file, int flags, int mode)
   uid_t user_id = get_uid();
   if(user_id == marks_uid)
   {
-    printk("mark is about to open '/ect/ld.so.cache'");
+    printk("mark is about to open '/ect/ld.so.cache'\n");
   }
 }
 
