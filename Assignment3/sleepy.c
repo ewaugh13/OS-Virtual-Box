@@ -133,12 +133,13 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
     return -EINVAL;
   }
   minor = (int)iminor(filp->f_path.dentry->d_inode);
-  remaining_seconds = *((int*)buf);
+  copy_from_user(&remaining_seconds, buf, count);
 
   mutex_unlock(&dev->sleepy_mutex);
   time_after = jiffies_to_msecs(wait_event_interruptible_timeout(sleepy_devices[minor].my_queue, 
     sleepy_devices[minor].flag != 0, msecs_to_jiffies(remaining_seconds * 1000))) / 1000;
   
+  sleepy_devices[minor].flag = 1;
   retval = time_after;
   printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd \n", minor, time_after);
 

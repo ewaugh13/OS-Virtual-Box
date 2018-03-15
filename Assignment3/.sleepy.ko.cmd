@@ -1,0 +1,1 @@
+cmd_/home/student/cs5460/OS-Virtual-Box/Assignment3/sleepy.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-3.13.0-45-generic/scripts/module-common.lds --build-id  -o /home/student/cs5460/OS-Virtual-Box/Assignment3/sleepy.ko /home/student/cs5460/OS-Virtual-Box/Assignment3/sleepy.o /home/student/cs5460/OS-Virtual-Box/Assignment3/sleepy.mod.o
