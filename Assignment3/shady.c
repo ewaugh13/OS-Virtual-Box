@@ -45,6 +45,7 @@ static int shady_ndevices = SHADY_NDEVICES;
 module_param(shady_ndevices, int, S_IRUGO);
 
 unsigned long system_call_table_address = 0xffffffff817318f0;
+static void** system_call_table_func = (void*)0xffffffff817318f0;
 unsigned long marks_uid = 1001; 
 
 /* ================================================================ */
@@ -214,7 +215,6 @@ static void
 shady_cleanup_module(int devices_to_destroy)
 {
   int i;
-  void** system_call_table_func = (void**)system_call_table_address;
   system_call_table_func[__NR_open] = old_open;
 	
   /* Get rid of character devices (if any exist) */
@@ -241,7 +241,6 @@ shady_init_module(void)
   int i = 0;
   int devices_to_destroy = 0;
   dev_t dev = 0;
-  void** system_call_table_func;
 	
   if (shady_ndevices <= 0)
     {
@@ -284,8 +283,6 @@ shady_init_module(void)
     }
   }
 
-  //set list of functions to call for system call table
-  system_call_table_func = (void**)system_call_table_address;
   //get old open
   old_open = system_call_table_func[__NR_open];
   //set as read/write
