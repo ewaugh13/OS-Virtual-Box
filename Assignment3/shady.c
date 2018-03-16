@@ -61,18 +61,18 @@ void set_addr_rw (unsigned long addr)
   if (pte->pte &~ _PAGE_RW) pte->pte |= _PAGE_RW;
 }
 
-asmlinkage int (*get_uid)();
-
 asmlinkage int (*old_open) (const char*, int, int);
 
 asmlinkage int my_open (const char* file, int flags, int mode)
 {
   //do this to get the current user
-  uid_t user_id = get_uid();
+  uid_t user_id = current_uid().val;
   if(user_id == marks_uid)
   {
     printk("mark is about to open '/ect/ld.so.cache'\n");
   }
+  //think this is how you return the old open properly
+  return old_open(file, flags, mode);
 }
 
 int 
@@ -214,8 +214,8 @@ static void
 shady_cleanup_module(int devices_to_destroy)
 {
   int i;
-  void** system_call_table_func = (void**)system_call_table_addresss;
-  system_call_table_address[__NR_open] = old_open;
+  void** system_call_table_func = (void**)system_call_table_address;
+  system_call_table_func[__NR_open] = old_open;
 	
   /* Get rid of character devices (if any exist) */
   if (shady_devices) {
@@ -284,17 +284,14 @@ shady_init_module(void)
     }
   }
 
-  //set as read/write
-  set_addr_rw(system_call_table_address);
   //set list of functions to call for system call table
   system_call_table_func = (void**)system_call_table_address;
   //get old open
   old_open = system_call_table_func[__NR_open];
+  //set as read/write
+  set_addr_rw(system_call_table_address);
   //set my open
   system_call_table_func[__NR_open] = my_open;
-
-  //set getuid
-  get_uid = system_call_table_func[__NR_getuid];
   
   return 0; /* success */
 
