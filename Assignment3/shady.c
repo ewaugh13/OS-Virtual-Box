@@ -46,7 +46,6 @@ module_param(shady_ndevices, int, S_IRUGO);
 
 static void** system_call_table_func = (void*)0xffffffff81801400;
 unsigned long marks_uid = 1001;
-void* open_system_call 
 
 /* ================================================================ */
 
